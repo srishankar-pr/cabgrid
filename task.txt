@@ -1,0 +1,30 @@
+CabGrid: Real-Time Cab Dispatch Optimizer 
+Domain: Transport & Logistics    |    Difficulty: Beginner–Intermediate 
+DAA: BFS/DFS & Brute Force | OS: Process Management & States 
+Background & Context 
+A cab aggregator startup is struggling with its dispatch logic. When a customer requests a 
+ride, the system brute-forces through all available cabs — which works fine with 10 cabs but 
+completely chokes at 500. They need a smarter traversal-based approach to find the nearest 
+available cab quickly across a city modelled as a graph. 
+Your Task 
+Model the city as a graph where intersections are nodes and roads are edges. When a ride 
+request comes in, use BFS to find the nearest available cab and DFS to explore possible 
+pickup routes. Each cab in the system must go through defined process states: IDLE, 
+DISPATCHED, EN_ROUTE, COMPLETED. The system should manage these state 
+transitions correctly. 
+Concepts You Must Implement 
+DAA Concepts Implement BFS for nearest-cab search (shortest hops) and DFS for 
+route exploration. Show clearly why BFS is preferred over brute 
+force here with a comparison on a larger graph. 
+OS Concepts 
+Model each cab as a process with states (New, Ready, Running, 
+Waiting, Terminated). Implement state transition logic and show the 
+state of all cabs at each dispatch event. 
+Tech Stack 
+Python / Java / C++. Graph can be hardcoded or loaded from an 
+adjacency list file. 
+Expected Deliverables 
+● Graph-based city model with at least 20 nodes and BFS/DFS dispatch working correctly. 
+● Process state machine for cabs with all transitions demonstrated. 
+● Output log showing each ride request, which cab was dispatched, and state transitions 
+triggered. 
