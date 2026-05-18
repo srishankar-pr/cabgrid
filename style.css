@@ -48,6 +48,10 @@ html, body {
     overflow: hidden;
 }
 
+body.scrollable {
+    overflow-y: auto;
+}
+
 /* ===== AMBIENT BACKGROUND EFFECTS ===== */
 .ambient-glow {
     position: fixed;
@@ -302,14 +306,26 @@ canvas:active {
     bottom: 20px;
     left: 20px;
     display: flex;
-    gap: 16px;
-    padding: 10px 18px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px;
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border-radius: var(--radius-md);
     border: 1px solid var(--panel-border);
     z-index: 5;
+    max-height: 250px;
+    width: 260px;
+    overflow-y: auto;
+}
+
+.map-legend::-webkit-scrollbar {
+    width: 3px;
+}
+.map-legend::-webkit-scrollbar-thumb {
+    background: var(--accent-dim);
+    border-radius: 3px;
 }
 
 .legend-item {
@@ -458,6 +474,43 @@ select:focus {
 
 select:hover {
     border-color: rgba(56, 189, 248, 0.25);
+}
+
+.fare-container {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fare-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.fare-amount {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.surge-badge {
+    background: rgba(248, 113, 113, 0.15);
+    color: var(--red);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    margin-left: 8px;
+    vertical-align: middle;
+    animation: pulse 2s infinite;
 }
 
 /* ===== CTA BUTTON ===== */
@@ -619,3 +672,154 @@ select:hover {
 .log-wait { color: var(--amber); }
 .log-run { color: var(--red); }
 .log-done { color: var(--green); }
+
+/* ===== COMPLETED RIDE TOAST POPUPS ===== */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.ride-toast {
+    pointer-events: auto;
+    width: 320px;
+    background: rgba(8, 12, 24, 0.85);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 0, 0, 0.4);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transform: translateX(-40px);
+    opacity: 0;
+    animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+@keyframes toastSlideIn {
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.ride-toast.fade-out {
+    transform: translateX(-40px);
+    opacity: 0;
+}
+
+.toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 8px;
+}
+
+.toast-title {
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.toast-close:hover {
+    color: var(--text-primary);
+}
+
+.toast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.toast-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toast-row .label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.toast-row .value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.toast-path {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    word-break: break-all;
+    margin-top: 4px;
+}
+
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: currentColor;
+    width: 100%;
+    transform-origin: left;
+    animation: toastProgressShrink 5s linear forwards;
+}
+
+@keyframes toastProgressShrink {
+    to { transform: scaleX(0); }
+}
+
+/* ===== SPEED SLIDER STYLING ===== */
+input[type="range"]::-webkit-slider-runnable-track {
+    background: rgba(255, 255, 255, 0.08);
+    height: 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-top: -4px;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    box-shadow: 0 0 15px var(--accent);
+}

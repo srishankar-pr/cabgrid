@@ -47,6 +47,28 @@ const cityGraph = {
 
 const nodeNames = Object.keys(cityNodes);
 
+let totalCollection = 0;
+let systemSpeedMultiplier = 1.0;
+
+function getCabColor(cabId, alpha = 1) {
+    const colors = [
+        '255, 0, 0',     // 1. Vivid Cherry Red
+        '255, 0, 255',   // 2. Hot Magenta
+        '0, 255, 0',     // 3. Electric Lime Green
+        '255, 127, 0',   // 4. Vibrant Electric Orange
+        '130, 0, 255',   // 5. Deep Intense Purple
+        '255, 240, 0',   // 6. Neon Bright Yellow
+        '255, 255, 255', // 7. Pure Crisp White
+        '255, 105, 180', // 8. Hot Bubblegum Pink
+        '160, 0, 90',     // 9. Crimson Wine / Plum
+        '255, 200, 150', // 10. Soft Warm Peach
+        '190, 80, 0',     // 11. Vibrant Rust / Terracotta (Replaced Sand)
+        '210, 140, 255'  // 12. Soft Pastel Lavender
+    ];
+    const rgb = colors[(cabId - 1) % colors.length];
+    return `rgba(${rgb}, ${alpha})`;
+}
+
 // DOM Elements
 const canvas = document.getElementById('cityMap');
 const ctx = canvas.getContext('2d');
@@ -151,6 +173,7 @@ class Cab {
         this.pickupDelay = 0; // Timer for boarding passenger
         this.isManualRide = false;
         this.angle = 0; // direction of travel in radians
+        this.fare = 0; // dynamic ride fare
         
         // Static paths for highlighting
         this.pickupPath = null;
@@ -158,9 +181,12 @@ class Cab {
     }
 
     update() {
+        const effectiveSpeed = this.speed * systemSpeedMultiplier;
+        
         if (this.pickupDelay > 0) {
-            this.pickupDelay--;
-            if (this.pickupDelay === 0) {
+            this.pickupDelay -= systemSpeedMultiplier;
+            if (this.pickupDelay <= 0) {
+                this.pickupDelay = 0;
                 this.beginDropoffPhase();
             }
             return; // Wait while boarding
@@ -176,7 +202,7 @@ class Cab {
             const dy = targetY - this.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             
-            if (dist <= this.speed) {
+            if (dist <= effectiveSpeed) {
                 // Reached node
                 this.x = targetX;
                 this.y = targetY;
@@ -191,13 +217,13 @@ class Cab {
                 // Track heading
                 this.angle = Math.atan2(dy, dx);
                 // Interpolate
-                this.x += (dx / dist) * this.speed;
-                this.y += (dy / dist) * this.speed;
+                this.x += (dx / dist) * effectiveSpeed;
+                this.y += (dy / dist) * effectiveSpeed;
             }
         } else {
             // Idle wander logic
             if (this.state === CAB_STATE.READY) {
-                this.idleTimer++;
+                this.idleTimer += systemSpeedMultiplier;
                 if (this.idleTimer > 180) { // Every ~3s wander
                     this.idleTimer = 0;
                     const neighbors = cityGraph[this.currentNode];
@@ -220,7 +246,11 @@ class Cab {
             log(`Cab: #${this.id}`, 'done');
             log(`Route: ${this.currentRide.pickup} -> ${this.currentRide.dropoff}`, 'done');
             log(`Path Hopped: ${this.dropoffPath.join(' -> ')}`, 'done');
+            log(`Fare Paid: ₹${this.fare}`, 'done');
             log(`================================`, 'done');
+            
+            // Show premiumCompleted ride glassmorphism toast popup
+            showCompletedRideToast(this);
             
             log(`[OS] Cab ${this.id} Terminated -> Ready.`, 'done');
             this.state = CAB_STATE.READY;
@@ -228,6 +258,7 @@ class Cab {
             this.pickupPath = null;
             this.dropoffPath = null;
             this.isManualRide = false;
+            this.fare = 0;
         }
     }
     
@@ -242,10 +273,8 @@ class Cab {
         let color;
         if (this.state === CAB_STATE.READY) {
             color = '#16a34a'; // green
-        } else if (this.isManualRide) {
-            color = (this.state === CAB_STATE.WAITING) ? '#d97706' : '#dc2626'; // amber/red
         } else {
-            color = '#3b82f6'; // blue for auto-simulated rides
+            color = getCabColor(this.id, 1); // custom neon color
         }
         
         ctx.save();
@@ -277,15 +306,25 @@ class Cab {
         ctx.shadowBlur = 0;
         ctx.restore();
         
-        // Cab ID label (draw below the car)
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 9px Inter";
-        // Fill the text
-        ctx.fillText(`#${this.id}`, this.x - 5, this.y + 16);
-        // Add a subtle white stroke for better contrast on dark backgrounds
-        ctx.strokeStyle = "#000000";
-        ctx.lineWidth = 1.5;
-        ctx.strokeText(`#${this.id}`, this.x - 5, this.y + 16);
+        // Premium cyber-glass Cab ID label matching the UI
+        const labelText = `#${this.id}`;
+        ctx.font = "bold 9px 'JetBrains Mono', monospace";
+        const tw = ctx.measureText(labelText).width;
+        
+        // Pill background
+        ctx.fillStyle = "rgba(7, 11, 20, 0.85)";
+        ctx.beginPath();
+        ctx.roundRect(this.x - tw/2 - 4, this.y + 11, tw + 8, 12, 3);
+        ctx.fill();
+        
+        // Glowing border matching cab's status/color
+        ctx.strokeStyle = this.state === CAB_STATE.READY ? "rgba(22, 163, 74, 0.4)" : getCabColor(this.id, 0.5);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Bright matching text
+        ctx.fillStyle = this.state === CAB_STATE.READY ? "#4ade80" : getCabColor(this.id, 1);
+        ctx.fillText(labelText, this.x - tw/2, this.y + 20);
     }
 }
 
@@ -308,11 +347,13 @@ function findNearestCabBFS(pickupNode) {
         
         // Check if an available cab is here
         for (let cab of cabs) {
-            // We removed the 'cab.path.length === 0' constraint.
-            // If a cab is wandering, it can still be selected, and we will interrupt it.
-            if (cab.state === CAB_STATE.READY && cab.currentNode === current.node) {
-                cab.path = []; // Interrupt wandering
-                return { cab, distance: current.distance };
+            if (cab.state === CAB_STATE.READY) {
+                const isAtCurrent = cab.currentNode === current.node;
+                const isMovingToCurrent = cab.path.length > 0 && cab.path[0] === current.node;
+                
+                if (isAtCurrent || isMovingToCurrent) {
+                    return { cab, distance: current.distance };
+                }
             }
         }
         
@@ -391,6 +432,21 @@ function dispatchRide(pickup, dropoff, isManual = false) {
     const { cab, distance } = result;
     log(`Found Cab ${cab.id} at ${cab.currentNode} (${distance} hops).`);
     
+    // Calculate ride fare dynamically
+    const activeCount = cabs.filter(c => c.state !== CAB_STATE.READY).length;
+    const isSurge = (activeCount / NUM_CABS) > 0.6;
+    let rawDropoffPath = findBestRouteDFS(pickup, dropoff);
+    const hops = rawDropoffPath ? rawDropoffPath.length - 1 : 0;
+    const baseFare = 50;
+    const perHop = 20;
+    let rideFare = baseFare + (hops * perHop);
+    if (isSurge) {
+        rideFare = Math.round(rideFare * 1.5);
+    }
+    
+    cab.fare = rideFare;
+    totalCollection += rideFare;
+    
     // 2. OS Transition
     log(`[OS] Cab ${cab.id} Ready -> Waiting.`);
     cab.state = CAB_STATE.WAITING;
@@ -399,15 +455,42 @@ function dispatchRide(pickup, dropoff, isManual = false) {
     
     // 3. DFS for routing to pickup
     log(`[DAA] DFS pathing to pickup...`);
-    let rawPickupPath = findBestRouteDFS(cab.currentNode, pickup);
-    let rawDropoffPath = findBestRouteDFS(pickup, dropoff);
+    let rawPickupPath;
+    if (cab.path && cab.path.length > 0) {
+        // Cab is moving from cab.currentNode to cab.path[0]
+        const A = cab.currentNode;
+        const B = cab.path[0];
+        
+        const nodeA = cityNodes[A];
+        const nodeB = cityNodes[B];
+        
+        const distToA = Math.sqrt((cab.x - nodeA.x)**2 + (cab.y - nodeA.y)**2);
+        const distToB = Math.sqrt((cab.x - nodeB.x)**2 + (cab.y - nodeB.y)**2);
+        
+        const pathA = findBestRouteDFS(A, pickup);
+        const pathB = findBestRouteDFS(B, pickup);
+        
+        const scoreA = distToA + (pathA ? (pathA.length - 1) * 60 : 999999);
+        const scoreB = distToB + (pathB ? (pathB.length - 1) * 60 : 999999);
+        
+        if (scoreA < scoreB && pathA) {
+            log(`[OS] Cab ${cab.id} U-turning back to ${A} (optimal path).`);
+            rawPickupPath = [...pathA];
+        } else if (pathB) {
+            log(`[OS] Cab ${cab.id} continuing to ${B} (optimal path).`);
+            rawPickupPath = [...pathB];
+        } else {
+            rawPickupPath = pathA ? [...pathA] : [];
+        }
+    } else {
+        // Cab is stopped at cab.currentNode
+        rawPickupPath = findBestRouteDFS(cab.currentNode, pickup);
+    }
     
     cab.pickupPath = rawPickupPath ? [...rawPickupPath] : [];
     cab.dropoffPath = rawDropoffPath ? [...rawDropoffPath] : [];
     
     cab.path = rawPickupPath ? [...rawPickupPath] : [];
-    
-
     
     if (cab.path && cab.path.length === 0) {
         // Cab is already at the pickup node
@@ -522,44 +605,47 @@ function drawGraph() {
     
     // 3. Draw highlighted active paths (ABOVE roads)
     for (let cab of cabs) {
-        if (cab.isManualRide) {
-            // Pickup Path — bright amber/orange glow
+        if (cab.state !== CAB_STATE.READY) {
+            const cabColorSolid = getCabColor(cab.id, 1);
+            const cabColorGlow = getCabColor(cab.id, 0.15);
+            const cabColorGlowInner = getCabColor(cab.id, 0.9);
+            
+            // Pickup Path — dashed custom cab color
             if (cab.state === CAB_STATE.WAITING && cab.path && cab.path.length > 0) {
                 // Wide outer glow
                 ctx.lineWidth = 14;
-                ctx.strokeStyle = 'rgba(251,191,36,0.15)';
+                ctx.strokeStyle = cabColorGlow;
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 18;
+                ctx.shadowColor = cabColorSolid; ctx.shadowBlur = 18;
                 ctx.beginPath(); ctx.moveTo(cab.x, cab.y);
                 for (const n of cab.path) { const nd = cityNodes[n]; ctx.lineTo(nd.x, nd.y); }
                 ctx.stroke();
-                // Solid inner lane
+                // Dashed inner lane
                 ctx.lineWidth = 4;
-                ctx.strokeStyle = 'rgba(251,191,36,0.9)';
+                ctx.strokeStyle = cabColorGlowInner;
                 ctx.shadowBlur = 8;
-                ctx.setLineDash([10, 6]);
+                ctx.setLineDash([8, 6]);
                 ctx.beginPath(); ctx.moveTo(cab.x, cab.y);
                 for (const n of cab.path) { const nd = cityNodes[n]; ctx.lineTo(nd.x, nd.y); }
                 ctx.stroke();
                 ctx.setLineDash([]); ctx.shadowBlur = 0;
             }
-            // Dropoff Path — glowing cyan (selected route)
+            // Dropoff Path — solid custom cab color
             if (cab.state === CAB_STATE.RUNNING && cab.path && cab.path.length > 0) {
                 ctx.lineWidth = 14;
-                ctx.strokeStyle = 'rgba(56,189,248,0.12)';
+                ctx.strokeStyle = cabColorGlow;
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 20;
+                ctx.shadowColor = cabColorSolid; ctx.shadowBlur = 20;
                 ctx.beginPath(); ctx.moveTo(cab.x, cab.y);
                 for (const n of cab.path) { const nd = cityNodes[n]; ctx.lineTo(nd.x, nd.y); }
                 ctx.stroke();
                 ctx.lineWidth = 4;
-                ctx.strokeStyle = 'rgba(56,189,248,0.95)';
+                ctx.strokeStyle = cabColorGlowInner;
                 ctx.shadowBlur = 10;
-                ctx.setLineDash([10, 6]);
                 ctx.beginPath(); ctx.moveTo(cab.x, cab.y);
                 for (const n of cab.path) { const nd = cityNodes[n]; ctx.lineTo(nd.x, nd.y); }
                 ctx.stroke();
-                ctx.setLineDash([]); ctx.shadowBlur = 0;
+                ctx.shadowBlur = 0;
             }
         }
     }
@@ -618,15 +704,16 @@ function drawGraph() {
     
     // 5. Draw special active ride pins (Source & Destination)
     for (let cab of cabs) {
-        if (cab.isManualRide && cab.currentRide) {
+        if (cab.currentRide) {
             const pickupNode = cityNodes[cab.currentRide.pickup];
             const dropoffNode = cityNodes[cab.currentRide.dropoff];
+            const cabColor = getCabColor(cab.id, 1);
             
             if (cab.state === CAB_STATE.WAITING) {
-                if (pickupNode) drawSpecialPin(ctx, pickupNode.x, pickupNode.y, '#f59e0b', 'PICKUP');
+                if (pickupNode) drawSpecialPin(ctx, pickupNode.x, pickupNode.y, cabColor, `CAB #${cab.id} PICKUP`);
             }
             if (cab.state === CAB_STATE.WAITING || cab.state === CAB_STATE.RUNNING) {
-                if (dropoffNode) drawSpecialPin(ctx, dropoffNode.x, dropoffNode.y, '#ef4444', 'DROPOFF');
+                if (dropoffNode) drawSpecialPin(ctx, dropoffNode.x, dropoffNode.y, cabColor, `CAB #${cab.id} DEST`);
             }
         }
     }
@@ -671,8 +758,44 @@ function drawSpecialPin(ctx, x, y, color, labelText) {
 }
 
 function updateStats() {
-    document.getElementById('active-cabs').innerText = cabs.filter(c => c.state !== CAB_STATE.READY).length;
+    const activeCount = cabs.filter(c => c.state !== CAB_STATE.READY).length;
+    document.getElementById('active-cabs').innerText = activeCount;
     document.getElementById('pending-rides').innerText = pendingRides;
+    
+    const collectionEl = document.getElementById('total-collection');
+    if (collectionEl) {
+        collectionEl.innerText = `₹${totalCollection}`;
+    }
+    
+    // Live Surge Pricing & Fare Estimation
+    const pickupSelect = document.getElementById('pickup-node');
+    const dropoffSelect = document.getElementById('dropoff-node');
+    if (!pickupSelect || !dropoffSelect) return;
+    
+    const pickup = pickupSelect.value;
+    const dropoff = dropoffSelect.value;
+    
+    let totalFare = 0;
+    const isSurge = (activeCount / NUM_CABS) > 0.6; // >60% fleet dispatched
+    
+    if (pickup && dropoff && pickup !== dropoff) {
+        // Fast DFS to find route length for price calculation
+        const route = findBestRouteDFS(pickup, dropoff);
+        const hops = route ? route.length - 1 : 0;
+        
+        const baseFare = 50;
+        const perHop = 20;
+        totalFare = baseFare + (hops * perHop);
+        if (isSurge) {
+            totalFare = Math.round(totalFare * 1.5);
+        }
+    }
+    
+    const fareVal = document.getElementById('fare-val');
+    const surgeBadge = document.getElementById('surge-badge');
+    
+    if (fareVal) fareVal.innerText = totalFare > 0 ? `₹${totalFare}` : '₹0';
+    if (surgeBadge) surgeBadge.style.display = isSurge && totalFare > 0 ? 'inline-block' : 'none';
 }
 
 function updateAdminPanel() {
@@ -701,18 +824,59 @@ function updateAdminPanel() {
             stateClass = 'manual'; stateLabel = 'EN ROUTE';
         }
         
+        const cabColor = getCabColor(cab.id, 1);
+        let badgeStyle = '';
+        if (cab.state !== CAB_STATE.READY) {
+            const cabColorGlow = getCabColor(cab.id, 0.15);
+            badgeStyle = `style="background: ${cabColorGlow}; color: ${cabColor}; border: 1px solid ${cabColor}; font-weight: 700;"`;
+        }
+        
         let routeText = '<span style="color:#334155">—</span>';
         if (cab.state !== CAB_STATE.READY && cab.currentRide) {
-            routeText = `<span style="color:#64748b;font-size:10px">${cab.currentRide.pickup.split(' ')[0]} → ${cab.currentRide.dropoff.split(' ')[0]}</span>`;
+            routeText = `<span style="color:#f1f5f9; font-weight:500; font-size:10px">${cab.currentRide.pickup.split(' ')[0]} → ${cab.currentRide.dropoff.split(' ')[0]}</span>`;
+        }
+        
+        let fareText = '<span style="color:#334155">—</span>';
+        if (cab.state !== CAB_STATE.READY && cab.fare) {
+            fareText = `<span style="color:${cabColor};font-weight:700">₹${cab.fare}</span>`;
         }
         
         tr.innerHTML = `
-            <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7dd3fc;font-weight:600">#${cab.id}</td>
-            <td><span class="badge ${stateClass}">${stateLabel}</span></td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${cabColor};font-weight:700">#${cab.id}</td>
+            <td><span class="badge ${stateClass}" ${badgeStyle}>${stateLabel}</span></td>
             <td class="route-cell">${routeText}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${cabColor};font-weight:700">${fareText}</td>
         `;
         tbody.appendChild(tr);
     }
+}
+
+function updateLegend() {
+    const legendEl = document.getElementById('map-legend');
+    if (!legendEl) return;
+    
+    let html = `<div class="legend-item" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; margin-bottom: 4px; font-weight: 700; color: #fff;">Map Legend</div>`;
+    html += `<div class="legend-item"><span class="dot green" style="background:#16a34a; box-shadow:0 0 8px #16a34a"></span> Idle / Ready</div>`;
+    
+    // Filter active cabs
+    const activeCabs = cabs.filter(c => c.state !== CAB_STATE.READY && c.currentRide);
+    
+    for (let cab of activeCabs) {
+        const color = getCabColor(cab.id, 1);
+        const pickupShort = cab.currentRide.pickup.split(' ')[0];
+        const dropoffShort = cab.currentRide.dropoff.split(' ')[0];
+        const phase = cab.state === CAB_STATE.WAITING ? 'Pickup' : 'Trip';
+        
+        html += `
+            <div class="legend-item" style="margin-top: 4px;">
+                <span class="dot" style="background: ${color}; box-shadow: 0 0 8px ${color}"></span>
+                <span style="color:#f1f5f9;font-weight:600">Cab #${cab.id}</span> 
+                <span style="color:#64748b">(${phase}: ${pickupShort} → ${dropoffShort})</span>
+            </div>
+        `;
+    }
+    
+    legendEl.innerHTML = html;
 }
 
 function animate() {
@@ -738,6 +902,7 @@ function animate() {
     if (!animate._frame || animate._frame % 6 === 0) {
         updateAdminPanel();
         updateStats();
+        updateLegend();
     }
     animate._frame = ((animate._frame || 0) + 1) % 600;
     
@@ -764,6 +929,71 @@ document.getElementById('request-btn').addEventListener('click', () => {
     dispatchRide(pickupSelect.value, dropoffSelect.value, true);
 });
 
+// Speed control slider listener
+const speedSlider = document.getElementById('system-speed-slider');
+const speedValDisplay = document.getElementById('speed-multiplier-val');
+
+if (speedSlider && speedValDisplay) {
+    speedSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        systemSpeedMultiplier = val;
+        speedValDisplay.innerText = `${val.toFixed(1)}x`;
+        log(`System Speed set to ${val.toFixed(1)}x`, 'sys');
+    });
+}
+
 // Start
 log("CabGrid Dashboard initialized.", 'sys');
 animate();
+
+// Helper for completed ride pop-up toast
+function showCompletedRideToast(cab) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const cabColor = getCabColor(cab.id, 1);
+    const toast = document.createElement('div');
+    toast.className = 'ride-toast';
+    toast.style.borderColor = getCabColor(cab.id, 0.3);
+    toast.style.color = cabColor; // Sets progress bar currentColor!
+    
+    toast.innerHTML = `
+        <div class="toast-header">
+            <span class="toast-title" style="color: ${cabColor}">⚡ Ride Completed</span>
+            <button class="toast-close">&times;</button>
+        </div>
+        <div class="toast-body">
+            <div class="toast-row">
+                <span class="label">Cab ID</span>
+                <span class="value" style="color: ${cabColor}">#${cab.id}</span>
+            </div>
+            <div class="toast-row">
+                <span class="label">Route</span>
+                <span class="value" style="color: #fff">${cab.currentRide.pickup.split(' ')[0]} → ${cab.currentRide.dropoff.split(' ')[0]}</span>
+            </div>
+            <div class="toast-row">
+                <span class="label">Fare Collected</span>
+                <span class="value" style="color: #10b981; font-weight: 700">₹${cab.fare}</span>
+            </div>
+            <div class="toast-path">
+                Path: ${cab.dropoffPath.join(' → ')}
+            </div>
+        </div>
+        <div class="toast-progress"></div>
+    `;
+    
+    // Wire up close button
+    const closeBtn = toast.querySelector('.toast-close');
+    closeBtn.onclick = () => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    };
+    
+    // Auto-remove after 5 seconds
+    const timer = setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+    
+    container.appendChild(toast);
+}

@@ -43,6 +43,10 @@
                 </div>
                 <div class="stats">
                     <div class="stat-box">
+                        <span class="stat-value" id="total-collection">₹0</span>
+                        <span class="stat-label">Total Earnings</span>
+                    </div>
+                    <div class="stat-box">
                         <span class="stat-value" id="active-cabs">0</span>
                         <span class="stat-label">Active Cabs</span>
                     </div>
@@ -65,10 +69,9 @@
             <div class="map-container">
                 <canvas id="cityMap"></canvas>
                 <!-- Floating Legend overlay on map -->
-                <div class="map-legend">
-                    <div class="legend-item"><span class="dot green"></span> Ready</div>
-                    <div class="legend-item"><span class="dot yellow"></span> Pickup</div>
-                    <div class="legend-item"><span class="dot red"></span> En Route</div>
+                <div class="map-legend" id="map-legend">
+                    <div class="legend-item" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; margin-bottom: 4px; font-weight: 700; color: #fff;">Map Legend</div>
+                    <div class="legend-item"><span class="dot green" style="background:#16a34a; box-shadow:0 0 8px #16a34a"></span> Idle / Ready</div>
                 </div>
             </div>
             
@@ -91,6 +94,27 @@
                         </label>
                         <select id="dropoff-node"></select>
                     </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><span class="label-icon">🏎️</span> Simulation Speed</span>
+                            <span id="speed-multiplier-val" style="color: var(--accent); font-weight: 700;">1.0x</span>
+                        </label>
+                        <div class="slider-wrapper" style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+                            <span style="font-size: 10px; color: var(--text-muted);">0.2x</span>
+                            <input type="range" id="system-speed-slider" min="0.2" max="4.0" step="0.1" value="1.0" style="flex: 1; accent-color: var(--accent); cursor: pointer; background: rgba(255,255,255,0.08); border-radius: 4px; height: 6px; -webkit-appearance: none; outline: none;">
+                            <span style="font-size: 10px; color: var(--text-muted);">4.0x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="fare-container">
+                        <div class="fare-label">Estimated Fare</div>
+                        <div class="fare-details">
+                            <span id="fare-val" class="fare-amount">₹0</span>
+                            <span id="surge-badge" class="surge-badge" style="display:none;">⚡ 1.5x SURGE</span>
+                        </div>
+                    </div>
+
                     <button id="request-btn" class="cta-btn">
                         <span class="btn-glow"></span>
                         <span class="btn-text">⚡ Request Ride (BFS + DFS)</span>
@@ -109,6 +133,7 @@
                                 <th>Cab</th>
                                 <th>State</th>
                                 <th>Route</th>
+                                <th>Fare</th>
                             </tr>
                         </thead>
                         <tbody id="cab-list">
@@ -127,6 +152,8 @@
             </aside>
         </main>
     </div>
+    
+    <div id="toast-container"></div>
 
     <script src="app.js"></script>
 </body>
