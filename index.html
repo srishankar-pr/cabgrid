@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CabGrid: AI-Powered Smart Mobility Operations Center</title>
+    <meta name="description" content="Real-time cab dispatch optimizer using BFS/DFS graph algorithms for Bangalore's road network.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Ambient background effects -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="vignette"></div>
+
+    <div class="dashboard">
+        <!-- Premium Top Bar -->
+        <header id="top-bar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                        <path d="M2 12h20"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>CabGrid <span class="brand-tag">OPS</span></h1>
+                    <p class="brand-sub">Smart Mobility Operations Center</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-pills">
+                    <div class="status-pill pill-live">
+                        <span class="pulse-dot"></span>
+                        LIVE
+                    </div>
+                    <div class="status-pill pill-health">
+                        <span class="health-icon">⚡</span>
+                        System Healthy
+                    </div>
+                </div>
+                <div class="stats">
+                    <div class="stat-box">
+                        <span class="stat-value" id="active-cabs">0</span>
+                        <span class="stat-label">Active Cabs</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="pending-rides">0</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="total-fleet">12</span>
+                        <span class="stat-label">Fleet Size</span>
+                    </div>
+                </div>
+                <div class="clock" id="live-clock">--:--:--</div>
+            </div>
+            <div class="header-glow-line"></div>
+        </header>
+        
+        <main>
+            <!-- Full-bleed Map -->
+            <div class="map-container">
+                <canvas id="cityMap"></canvas>
+                <!-- Floating Legend overlay on map -->
+                <div class="map-legend">
+                    <div class="legend-item"><span class="dot green"></span> Ready</div>
+                    <div class="legend-item"><span class="dot yellow"></span> Pickup</div>
+                    <div class="legend-item"><span class="dot red"></span> En Route</div>
+                </div>
+            </div>
+            
+            <!-- Floating Sidebar -->
+            <aside class="control-panel">
+                <!-- Dispatch Panel -->
+                <div class="glass-panel dispatch-panel">
+                    <div class="panel-header">
+                        <h3>⚡ Dispatch Console</h3>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span class="label-icon">📍</span> Pickup Location
+                        </label>
+                        <select id="pickup-node"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span class="label-icon">🏁</span> Dropoff Location
+                        </label>
+                        <select id="dropoff-node"></select>
+                    </div>
+                    <button id="request-btn" class="cta-btn">
+                        <span class="btn-glow"></span>
+                        <span class="btn-text">⚡ Request Ride (BFS + DFS)</span>
+                    </button>
+                </div>
+                
+                <!-- Fleet Admin Panel -->
+                <div class="glass-panel fleet-panel">
+                    <div class="panel-header">
+                        <h3>🚖 Fleet Status</h3>
+                        <span class="fleet-count" id="fleet-online">12 Online</span>
+                    </div>
+                    <table class="cab-table">
+                        <thead>
+                            <tr>
+                                <th>Cab</th>
+                                <th>State</th>
+                                <th>Route</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cab-list">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- System Logs -->
+                <div class="glass-panel log-panel">
+                    <div class="panel-header">
+                        <h3>🖥️ System Terminal</h3>
+                        <span class="terminal-tag">LIVE</span>
+                    </div>
+                    <div id="system-log" class="terminal-log"></div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
